@@ -1,0 +1,1191 @@
+\documentclass[nojss]{jss}
+\usepackage{rotating}
+\usepackage{amsmath}
+\usepackage{wasysym}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amssymb, amsfonts}
+\DefineVerbatimEnvironment{Sinput}{Verbatim}{formatcom={\color[rgb]{0.56,0,0}}}
+ \DefineVerbatimEnvironment{Soutput}{Verbatim}{formatcom={\color[rgb]{0,0,0.56}}}
+
+%\VignetteIndexEntry{Exact Affine Stone Index Demand System in \proglang{R}: The \pkg{easi} Package}
+%\VignetteDepends{systemfit, stats, micEcon}
+%\VignetteKeywords{households' expenditure survey analysis, EASI demand system, Engel curves, simulations, equivalent income, R}
+%\VignettePackage{easi}
+
+\title{Exact Affine Stone Index Demand System in \proglang{R}: The \pkg{easi} Package}
+
+\Plaintitle{Exact Affine Stone Index Demand System in R: The easi Package}
+
+
+
+\author{St\'ephane Hoareau \\Universit\'e Laval \And
+ Guy Lacroix\\Universit\'e Laval \And
+Mirella Hoareau\\Universit\'e Laval \And
+ Luca Tiberti\\Universit\'e Laval}
+
+\Plainauthor{Document de travail CIRPEE\\Universit\'e Laval}
+
+\Address{
+St\'ephane Hoareau\\
+CIRPEE\\
+Universit\'e Laval\\
+E-mail: \email{sjlhoaro@yahoo.fr}
+\\
+\\
+Guy Lacroix\\
+CIRPEE\\
+Universit\'e Laval\\
+E-mail: \email{guy.lacroix@ecn.ulaval.ca}
+\\
+\\
+Mirella Hoareau\\
+CIRPEE\\
+Universit\'e Laval\\
+E-mail: \email{mirella.sinope@yahoo.fr}
+\\
+\\
+Luca Tiberti\\
+CIRPEE\\
+Universit\'e Laval\\
+E-mail: \email{luca.tiberti@ecn.ulaval.ca}
+}
+
+%% need no \usepackage{Sweave.sty}
+
+\Abstract{ \pkg{easi} is a package for \proglang{R} that enables the
+  estimation of the Exact Affine Stone Index (EASI) demand system
+  proposed by \textsc{Pendakur} and \textsc{Lewbel}. The EASI system
+  is more flexible and easier to manipulate than traditional demand
+  systems such as AIDS or QAIDS. It offers four major advantages:
+  First, EASI budget shares are linear in parameters, conditional on
+  real expenditures. Second, EASI demands are not constrained by the
+  theoretic rank limit of \textsc{Gorman}. Third, unobserved
+  preferences heterogeneity are taken into account via EASI error
+  terms, which are equivalent to random utility parameters.  Finally,
+  EASI demands can be polynomials or splines of any order. Estimation
+  of the EASI demand system has already been implement in Stata by
+  \cite{Pendakur/08}.  The \pkg{easi} package is more than a simple
+  port of the Stata code.  It offers a number of extensions within an
+  unified framework : calculation of elasticities and equivalent
+  income, simulations, selection of interaction terms, graphical
+  representations of Engel curves with/without confidence intervals,
+  \textit{etc.}}
+  
+\Keywords{households' expenditure survey analysis, EASI demand system,
+  Engel curves, simulations, equivalent income}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+<<echo=FALSE,results=hide>>=
+options(prompt= "R> ", useFancyQuotes = FALSE)
+@
+
+\vspace{0.5cm} Most empirical analyses of consumer expenditure data
+rely on parametric demand models because they are relatively easy to
+estimate.  Yet, it is well-known that these models are plagued with a
+number of empirical and theoretical shortcomings.  Indeed, recent work
+has shown that many goods depict Engle curves that are highly
+nonlinear, even S-shaped (\cite{Blundell/09}), a feature parametric
+models simply cannot account for.  Furthermore, all parametric models
+face the so-called Gorman-type rank restrictons (\cite{Gorman/81}).
+Finally, unobserved heterogeneity of preferences cannot readily be
+incorporated into most parametric models. Traditionally, the error terms
+are treated as random utility parameters (\cite{Brown/89},
+\cite{McFadden/90}, \cite{Brown/98}, \cite{Lewbel/01}, and
+\cite{Beckert/04}). 
+
+\vspace{0.5cm} The Exact Affine Stone Index (EASI) Demand System of
+\cite{Pendakur/08} and \cite{Lewbel/09} is a major breakthrough in the
+estimation of demand systems. It overcomes the aforementioned
+shortcomings while remaining ``easi'' to use.  The main novelty of
+their approach is to express utility in terms of observed variables as
+derived from the Hicksian demand functions. \textsc{Pendakur} and  
+\textsc{Lewbel} thus suggest we focus on what they refer to as
+\textit{implicit} Marshallian demand functions.  The latter are simply
+Hicksian demand functions in which the unobserved utility level is
+substituted out.  Their \textit{implicit} demand system avoids all the
+caveats mentionned above:  It is linear in parameters, can easily
+incorporate unobserved heterogeneity, is not limited by the Gorman
+rank restrictions, it is capable of generating highly nonlinear Engle
+curves, and most of all, it is relatively ``easi'' to estimate.  
+
+\textsc{Pendakur} and \textsc{Lewbel} derive the theoretical
+properties of the EASI model and propose an estimation strategy
+(iterated 3SLS).  In addition, they derive various budget/quantity
+elasticities.  Finally, they illutrate the properties of the model
+using Canadian micro-data.
+
+\vspace{0.5cm} Currently, \proglang{R} offers two solutions for estimating demand
+systems. The \pkg{systemfit} package (\cite{Hen/11})  can estimate
+systems of linear and nonlinear equations using Ordinary
+Least Squares (OLS), Weighted Least Squares (WLS), Seemingly Unrelated
+Regressions (SUR), Two-Stage Least Squares (2SLS), Weighted Two-Stage
+Least Squares (W2SLS), and Three-Stage Least Squares (3SLS). The
+\pkg{micEconAids} package (\cite{Hen/11bis}) focuses explicitely 
+on the Almost Ideal Demand System (AIDS) suggested by Deaton and
+Muellbauer (1980).  It is also based upon \pkg{systemfit}.
+
+\vspace{0.5cm} The \pkg{easi} package offers a unified framework
+within which the user can effortlessly estimate the EASI demand system
+as well as request additional statistical analyses.  Thus in addition
+to the estimation of the model, the \pkg{easi} package can calculate
+predicted budget shares, generate graphical representations of Engel
+curves (with/without confidence intervals), calculate various budget
+shares (price, income, demographics) and quantity (price, income)
+elasticities, as well as calculate equivalent incomes. The package also
+simulates price changes, income changes, demographics changes and
+measures the impact on predicted budget shares and elasticities and on
+the shapes of Engel curves.  The \pkg{easi} package is more flexible
+than the Stata code proposed by \cite{Pendakur/08} in that the
+user can choose a subset of demographic variables to interact with
+prices and/or expenditure.   
+
+\vspace{0.5cm} The paper is organized as follows:
+Section~\ref{sec:model} presents the EASI Demand System. The EASI
+model, the associated calculations and estimation method are
+presented in details.  Section~\ref{sec:modelelast} focuses on the 
+calculations of the elasticities. We briefly recall the expressions
+for the budget shares presented in \textsc{Lewbel} and
+\textsc{Pendakur} (2009), after which we derive similar expressions
+for the quantity elasticities.  Section ~\ref{sec:equivincome} develops
+the expressions for the equivalent incomes in the context of EASI model.
+Section ~\ref{sec:concavity} provides a test for the local concavity of the EASI cost function. Section ~\ref{sec:structure} presents the \pkg{easi} package
+structure.  Section ~\ref{sec:examples} illustrate the use of
+\pkg{easi} package with several examples. In particular, we replicate
+the estimation results of \cite{Lewbel/09}.
+Section~\ref{sec:conclusion} concludes.
+
+\section{The EASI Demand System}
+\label{sec:model}
+
+\vspace{0.5cm} Let $C(p,u,z,\epsilon)$ be a cost (expenditure)
+function, where $p$ is the price vector, $u$ is the utility level, $z$
+is the a vector of demographic variables which proxy observable
+preference heterogeneity. In additon, let $\varepsilon$ be a vector of
+error terms which include unobservable preference
+heterogeneity. Hicksian compensated budget-shares functions can be
+derived using Shephard's lemma: $w=\omega(p,u,z,\varepsilon)=\nabla_p
+C(p,u,z,\epsilon)$. By expressing the indirect utility function in
+terms of $g$ of $w,p,x,z$, the \textit{implicit} utility function,
+$y$, is defined as
+$y=g(\omega(p,u,z,\varepsilon),p,x,z)=g(w,p,x,z)$. The \textit{implicit}
+utility function depends only on observable data. Its closed-form
+expression is flexible, easily lends itself to empirical
+implementation, and does not depend on the utility have itself a
+closed-form expressions.  The \textit{implicit} Marshallian demand system is defined as
+$w=\omega(p,y,z,\varepsilon)$, which is simply the Hicksian demand system
+with  $y$ substituted in for  $u$.
+
+\textsc{Lewbel} and \textsc{Pendakur} (2009) refer to this class of cost functions as ``Exact
+Affine Stone Index (EASI)  cost functions", where $y$ corresponds to
+an affine function of the Stone index deflated by the log nominal
+expenditures.
+
+\vspace{0.5cm} \textsc{Lewbel} and \textsc{Pendakur} propose the
+following cost function, which is particularly convenient for
+empirical implementation :
+
+\begin{equation} \label{eq1} \begin{array}{l} \ln C(p,y,z,\varepsilon)
+  = {\displaystyle y + \sum_{j=1}^J m^j(y,z)\ln p^j
+  +\frac{1}{2}\sum_{j=1}^J\sum_{k=1}^J a^{jk}(z) \ln p^j \ln p^k
+  }\\[16pt] \phantom{\ln C(p,u,z,\varepsilon) = } {\displaystyle +
+  \frac{1}{2}\sum_{j=1}^J\sum_{k=1}^J b^{jk} \ln p^j \ln p^k y +
+  \sum_{j=1}^J \varepsilon_j \ln p^j} \end{array} \end{equation}
+
+
+\vspace{0.5cm} Assuming there are $J$ goods and $T$ demographic
+variables, they propose the following parameterisation :
+
+\begin{equation}
+  \label{eq2}
+ m^j(y,z) = \sum_{r=1}^R b_r^j y^r +\sum_{t=1}^T g_t^j z^t + \sum_{t=2}^T h_t^j z^t y
+\end{equation}
+
+and $a^{jk}(z)=\sum_{t=1}^T a^{jkt}z_t$
+
+
+\vspace{0.5cm} The \textit{implicit} Marshalian budget
+shares for each $j \in 1...J$ is then given by:
+
+
+\begin{equation} \label{eq5} w^j = \sum_{r=1}^R b_r^j y^r +
+  \sum_{t=1}^T g_t^j z_t + \sum_{k=1}^T \sum_{t=1}^T a_{jkt} z_t \ln
+  p^k + \sum_{k=1}^J b_{jk} \ln p^k y + \sum_{t=2}^T h_{t}^j z_t y +
+  \varepsilon_j \end{equation}
+
+\vspace{0.5cm} \begin{equation} \label{eq6} y = \frac{\ln x -
+\sum_{j=1}^J w_j \ln p^j+ 1/2 \sum_{j=1}^J \sum_{k=1}^J a_{jkt} z_t
+\ln p^j \ln p^k}{1-\frac{1}{2}\sum_{j=1}^J \sum_{k=1}^J b_{jk} \ln p^j
+\ln p^k} \end{equation}
+
+\vspace{0.5cm} These \textit{implicit} Marshalian budget shares have
+several desirable properties. The linearity in parameters and additive
+error terms - namely the random utility parameters $\varepsilon_j$
+representing unobserved preferences - are certainly two of them.  In
+addition, price effects can easily be interacted with expenditures and
+demographic characteristics. Engel curves can take virtually any shape
+through arbitrary high-order polynomials in log real expenditures. The
+demographic variables enter both through the intercept and the slopes
+of the log real-expenditures. Finally, EASI Engel curves for each good
+are almost completely unrestricted.
+
+\vspace{0.5cm} The strict monotonicity and concavity of the cost
+function are required in order to satisfy the others desirable
+properties of demand analysis - regularity, adding-up constraints,
+homogeneity and Slutsky symmetry.
+
+\vspace{0.5cm} Three methods of estimation are proposed in
+\cite{Pendakur/08} and \cite{Lewbel/09}.  All three take into account
+the heteroskedasticity of errors terms and the endogeneity of
+$y$. Parameters may be estimated by using \textsc{Hansen}'s (1982)
+General Method of Moments or by homoskedastic nonlinear 3SLS. The
+estimators are consistent with heteroskedasticity but are only
+asymptotically efficient when the errors terms are homoskedastic. The
+authors recommend using an iterative linear 3SLS, which is a
+special case of a fixed-point based estimator considered by 
+Dominitz and Sherman (2005).
+
+
+\section{Calculation of the elasticities}
+\label{sec:modelelast}
+
+\subsection{The Budget Shares Elasticities}
+\label{sec:modelelast1}
+
+\vspace{0.5cm}
+Five types of budget shares elasticities are calculated in \cite{Pendakur/08} and \cite{Lewbel/09}:
+
+\vspace{0.5cm}
+\begin{description}
+\item[The semi elasticities of budget shares, $\Psi$, are given by] :
+  \begin{equation}
+    \label{eq7}
+  \Psi = \frac{\partial \omega_j^i(p,y,z,\varepsilon)}{\partial \ln p^k} = \sum_{t=1}^T a^{jkt}z_t + b^{jk}y
+  \end{equation}
+  
+\item[The real expenditure semi-elasticities, $\aleph$, are given by] : 
+  \begin{equation}
+    \label{eq8}
+    \aleph = \frac{\partial \omega_j^i(p,y,z,\varepsilon)}{\partial y} = \sum_{r=1}^R b_r^{j}r y^{r-1} + \sum_{t=2}^T h_t^{j} z_t  + \sum_{k=1}^J b^{jk} \ln p^k 
+      \end{equation}
+    
+\item[The semi elasticities with respect to observable demographics, $\zeta$, are given by] : 
+  \begin{equation}
+\label{eq9}
+    \zeta = \frac{\partial \omega_j^i(p,y,z,\varepsilon)}{\partial z_t} =  g_t^{j} + h_t^{j} y  + \sum_{k=1}^J a^{jkt} \ln p^k 
+       \end{equation}
+  
+\item[The compensated quantity derivatives with respect to prices, $\Gamma$ ,are given by ] : 
+  \begin{equation}
+    \label{eq10}
+  \Gamma = W^{-1}(\Psi+ww') \hspace{0.5cm} \textrm{ where } \hspace{0.5cm} W=diag(w)
+         \end{equation}
+  
+\item[The compensated expenditures elasticities with respect to prices, $S$, are given by] : 
+\begin{equation}
+  \label{eq11}
+  S=\Psi+ww'-W
+     \end{equation}
+
+\end{description}
+
+\subsection{The Quantities Elasticities}
+\label{sec:modelelast2}
+
+
+\vspace{0.5cm}
+The elasticities for the quantities have been developed as part of the construction of the \pkg{easi} package. 
+
+\vspace{0.5cm}
+Consider the EASI implicit marshallian demand system (\ref{eq5} and \ref{eq6}) and the following identity:
+
+
+\begin{equation}
+  \label{eq12}
+w^j = \frac{p_j Q_j}{x},
+\end{equation}
+
+\vspace{0.5cm}
+where $p_j$ is the nominal price of good $j$, $Q_j$ is the amount of good $j$ and $x$ is the total expenditure.
+
+\vspace{0.5cm}
+Elasticity of good $j$ with respect to the price of good $i$ is given by:
+
+\begin{equation}
+  \label{eq13}
+\frac{\partial Q_j}{\partial p_i} \frac{p_i}{Q_j} = \eta_j^i 
+\end{equation}
+
+\vspace{0.5cm}
+Therefore:
+
+\begin{equation}
+    \label{eq14}
+\frac{\partial Q_j}{\partial p_i} = \frac{\partial \left(\frac{x w_j}{p_j}\right)}{\partial p_i} + \frac{x}{p_j} \frac{\partial w_j}{\partial p_i} 
+\end{equation}
+
+\vspace{0.5cm}
+Moreover :
+
+\begin{equation}
+     \label{eq15}
+\frac{\partial w_j}{\partial p_i} = A1 + A2 + A3 + A4, 
+\end{equation}
+
+\vspace{0.5cm}
+with:
+ 
+\vspace{0.5cm}
+\begin{equation}
+   \label{eq16}
+A1 = \frac{\partial (\sum_{r=1}^R b_r^j y^r)}{\partial p_i} 
+\end{equation}
+\begin{equation}
+   \label{eq17}
+A2 = \frac{\partial (\sum_{t=2}^T h_t z_t y) }{\partial p_i}
+\end{equation}
+\begin{equation}
+   \label{eq18}
+A3 = \frac{\partial (\sum_{k=1}^J \sum_{t=1}^T a_{jkt} z_t \ln p_k)}{\partial p_i}
+\end{equation}
+\begin{equation}
+   \label{eq19}
+A4 = \frac{\partial (\sum_{k=1}^J b_{jk} \ln p_k y)}{\partial p_i} 
+\end{equation}
+
+\vspace{1cm}
+Calculations of $A_i$ give:
+
+\vspace{0.5cm}
+\begin{equation}
+   \label{eq20}
+ A1 = \frac{\partial y}{\partial P_i} \sum_{r=1}^R b_r^j y^{r-1}
+\end{equation}
+\begin{equation}
+   \label{eq21}
+A2 =  \frac{\partial y}{\partial P_i} \sum_{t=2}^T h_t z_t 
+\end{equation}
+\begin{equation}
+   \label{eq22}
+A3 =  \sum_{t=1}^T a_{jkt} z_t \frac{1}{p_i} 
+\end{equation}
+\begin{equation}
+   \label{eq23}
+A4 =  \frac{1}{p_i} b_{ji} y + \frac{\partial y}{\partial p_i} \sum_{k=1}^J b_{jk} \ln p_k
+\end{equation}
+
+\vspace{1cm}
+Let $C = \sum_{r=1}^R b_r^j y^{r-1}$, $D =  \sum_{t=2}^T h_t z_t$, $E = \sum_{t=1}^T a_{jkt} z_t$, $F = b_{ji} y$ and $G = \sum_{k=1}^J b_{jk} \ln p_k $
+
+
+\vspace{1cm}
+Moreover 
+
+\begin{equation}
+   \label{eq23p}
+y = \frac{u(p_i)}{v(p_i)},  \textrm{ where :}
+\end{equation}
+
+
+\vspace{0.5cm}
+\begin{equation}
+   \label{eq24}
+u(p_i)= \ln x - \sum_{j=1}^J w_j \ln p^j+ 1/2 \sum_{j=1}^J \sum_{k=1}^J \sum_{t=1}^T a_{jkt} z_t \ln p^j \ln p^k   \textrm{ and }
+\end{equation}
+
+\begin{equation}
+   \label{eq24p}
+v(p_i) = 1-\frac{1}{2}\sum_{j=1}^J \sum_{k=1}^J b_{jk} \ln p^j \ln p^k
+\end{equation}
+
+
+\vspace{0.5cm}
+It follows that:
+
+\begin{equation}
+   \label{eq25}
+ u'(p_i) = \frac{1}{P_i} ( - w_i + \sum_{k=1}^J \sum_{t=1}^T a_{jkt} z_t \ln p^k)   \textrm{ and }
+ \end{equation}
+ 
+ 
+ \begin{equation}
+   \label{eq25p}
+ v'(p_i) = - \frac{1}{P_i} b_{jk} \ln p^k 
+\end{equation}
+
+
+\vspace{0.5cm}
+Furthermore :
+
+\begin{equation}
+   \label{eq26}
+\frac{\partial y}{\partial P_i} = \frac{u'(p_i)v(p_i) -u(p_i)v'(p_i) }{v^2(p_i)} 
+\end{equation}
+
+
+\vspace{0.5cm}
+A little algebra allows us to write :
+
+\begin{equation}
+    \label{eq27}
+\frac{\partial y}{\partial p_i} =  \frac{1}{p_i} B
+\end{equation}
+
+Where 
+
+\begin{equation}
+    \label{eq28}
+B =  p_i \frac{u'(p_i)v(p_i) -u(p_i)v'(p_i) }{v^2(p_i)} 
+\end{equation}
+
+\vspace{0.5cm}
+Hence
+
+\vspace{0.5cm}
+\begin{equation}
+    \label{eq29}
+\frac{\partial Q_j}{\partial p_i} = \frac{\partial \left(\frac{x w_j}{p_j}\right)}{\partial p_i} + \frac{x}{p_j} \frac{1}{p_i} (B(C+D+G) + E + F)
+\end{equation}
+
+\vspace{0.5cm}
+Let $H=B(C+D+G) + E + F$.
+
+\vspace{0.5cm}
+Moreover 
+
+\vspace{0.5cm}
+\begin{displaymath}
+  \frac{\partial \left(\frac{x w_j}{p_j}\right)}{\partial p_i} =\left\{ \begin{array}{lll} &-\frac{x w_j}{p_j^2} &\textrm{if } i=j \\
+ & 0 & \textrm{otherwise} \\
+\end{array}\right.
+\end{displaymath}
+
+
+\begin{equation}
+    \label{eq31}
+\frac{\partial Q_j}{\partial p_i} = \frac{Q_j}{p_i} \left( -1 + \frac{H}{w_j}  \right)
+\end{equation}
+
+\vspace{1.5cm} Hence, letting  $\eta_j^i$  be the elasticity of good $j$ with
+respect to the price of good $i$, we obtain :
+
+\begin{equation}
+    \label{eq32}
+ \eta_j^i = -1 (i==j) + \frac{H}{w_j}
+\end{equation}
+
+
+\vspace{1cm} Consider the EASI implicit marshallian demand system
+(\ref{eq5}, \ref{eq6}) and the identity (\ref{eq12}):
+
+\vspace{0.5cm} Let $\eta_j^x$ be the elasticity of good $j$ with respect
+to income. This elasticity is given by:
+
+\vspace{0.5cm}
+\begin{equation}
+     \label{eq33}
+\frac{\partial Q_j}{\partial x} \frac{x}{Q_j} = \eta_j^x
+\end{equation}
+
+
+\vspace{0.5cm}
+So, we have :
+\begin{equation}
+     \label{eq34}
+\frac{\partial Q_j}{\partial x} = \frac{w_j}{p_j} + \frac{x}{p_j} \frac{\partial w_j}{\partial x} 
+\end{equation}
+
+
+\vspace{0.5cm}
+Moreover :
+
+\vspace{0.5cm}
+\begin{equation}
+       \label{eq35}
+ \frac{\partial w_j}{\partial x} = \frac{1}{x} (C+D+G)
+\end{equation}
+
+ \vspace{0.5cm}
+This allows us to write :
+
+\vspace{0.5cm}
+\begin{equation}
+       \label{eq36}
+\frac{\partial Q_j}{\partial x} = \frac{1}{P_j} w_j + \frac{x}{p_j} \frac{1}{x} (C+D+G)
+\end{equation}
+
+\vspace{0.5cm}
+Hence, we obtain :
+
+\vspace{0.5cm}
+\begin{equation}
+       \label{eq37}
+ \eta_j^x = 1 + \frac{C+D+G}{w_j}
+\end{equation}
+
+\vspace{0.5cm} \hspace{0.5cm} where $C = \sum_{r=1}^R b_r^j y^{r-1}$,
+\hspace{0.5cm} $D = \sum_{t=2}^T h_t z_t$
+\hspace{0.5cm}and\hspace{0.5cm} $G = \sum_{k=1}^J b_{jk} \ln p_k$.
+
+\newpage
+\section{Calculation of the equivalent income}
+\label{sec:equivincome}
+
+\vspace{0.5cm}
+
+The equivalent income is defined as the income level, $e_{c,h}$, that
+insures the utility levels are the same when evaluated at two prices
+vectors, \textit{i.e.}:
+
+\begin{equation}
+    \label{eq38}
+v (p_c,x_{c,h}) = v (p_r, e_{c,h}),
+\end{equation}
+
+
+\vspace{0.8cm} where $v (.)$ is the indirect utility function, $p_r$
+is the reference price, and $p_c$ is a different price vector. By
+inverting the indirect utility function, we obtain the equivalent
+income in terms of expenditure function: $e_{c,h} = e (p_r, p_c,
+x_{c,h})$, where $e_{c,h}$ is the equivalent income of household $h$
+living in stratum c, facing the price vector  $p_c$, with a
+level of nominal income per capita (or per adult equivalent)
+$x_{c,h}$. The equivalent income $e_{c,h}$ is the level of income, at
+the reference price $p_r$, offers the same utility level than that
+obtained with the income level $ x_{c,h}$ and the price system
+$p_c$. The function $ e (p_r, p_c, x_{c,h})$ is increasing with
+respect to $p_r$ and $x_{c,h}$, decreasing with $p_c$, concave and
+homogeneous of degree one with respect to the reference price, and has
+continuous first and second derivatives in all its arguments.
+
+\vspace{0.5cm} Consider the cost function (\ref{eq1}) in the EASI
+class, where $y$ is replaced by $u$ . From (\ref{eq2}) and
+(\ref{eq5}), we have :
+
+\begin{equation}
+\label{eq42}
+ m^j(u,z) = w^j(p,u,z) - \sum_{k=1}^J a_{jk} \ln p^k - \sum_{k=1}^J b_{jk} \ln p^k u
+\end{equation}
+
+\vspace{0.5cm}
+By substituting (\ref{eq42}) in (\ref{eq1}), we have :
+
+\begin{equation} \label{eq43} \begin{array}{l} \ln C(p,u, z) =
+{\displaystyle u(1-\sum_{j=1}^J \sum_{k=1}^J b_{jk} \ln p^j \ln p^k) +
+\sum_{j=1}^J \left(w^j(p,u,z) - \sum_{k=1}^J a_{jk} \ln p^k \right)
+\ln p^j }\\[16pt] \phantom{\ln C(p,u, z) =} {\displaystyle +
+\frac{1}{2} \sum_{j=1}^J \sum_{k=1}^J a_{jk} \ln p^j \ln p^k }
+\end{array} \end{equation}
+
+\vspace{0.5cm}
+
+The contemporary situation is characterized by 
+nominal total expenditures, $x_{c,h}$, and prices, $p_c$. This
+configuration achieves a level of utility $\overline{u}$:
+
+\begin{equation} \label{eq44} \overline{u} = \frac{\ln x_{c,h} -
+\sum_{j=1}^J w^j \ln p_c^j + \frac{1}{2} \sum_{j=1}^J \sum_{k=1}^J
+a_{jk} \ln p_c^j \ln p_c^k}{1-\frac{1}{2} \sum_{j=1}^J \sum_{k=1}^J
+b_{jk} \ln p_c^j \ln p_c^k} \end{equation}
+
+
+\vspace{0.5cm} The reference or \textit{ex ante } situation is characterized by nominal
+total expenditures equal to the equivalent income, $e_{c,h}$, and prices,
+$p_r$: This configuration also achieves a level of utility
+$\overline{u}$. We can calculate this equivalent income $e_{c,h}$ by
+solving :
+
+\begin{equation} \label{eq45} \begin{array}{l} \ln C(p_r,u, z) = \ln
+  e_{c,h} ={\displaystyle \overline{u}(1-\frac{1}{2}\sum_{j=1}^J
+  \sum_{k=1}^J b_{jk} \ln p_c^j \ln p_c^k) + \sum_{j=1}^J
+  \left(w^j(p_r,u,z) - \sum_{k=1}^J a_{jk} \ln p_r^k \right) \ln p_r^j
+  }\\[16pt] \phantom{\ln C(p_r,u, z) = \ln e_{c,h} =} {\displaystyle +
+  \frac{1}{2} \sum_{j=1}^J \sum_{k=1}^J a_{jk} \ln p_r^j \ln p_r^k }
+  \end{array} \end{equation}
+
+
+\vspace{0.5cm}
+By substituting (\ref{eq44}) in (\ref{eq45}), we obtain:
+
+\begin{equation} \label{eq46} \begin{array}{l} e_{c,h} = \exp \Bigg(
+  \ln x_{c,h} + \sum_{j=1}^J w^j \ln p_r^j - \sum_{j=1}^J w^j \ln
+  p_c^j + \\ \phantom{e_{c,h} = \exp \Bigg( } + \frac{1}{2}
+  \sum_{j=1}^J \sum_{k=1}^J a_{jk} \ln p_c^j \ln p_c^k - \frac{1}{2}
+  \sum_{j=1}^J \sum_{k=1}^J a_{jk} \ln p_r^j \ln p_r^k \Bigg)
+  \end{array} \end{equation}
+
+
+\section{Concavity of the cost function}
+\label{sec:concavity}
+
+\vspace{0.5cm}
+The EASI demand system estimation and the calculation of the equivalent income assume that the cost function is concave. However, this concavity can be checked after estimation. Furthermore, it is well known that a semi-negative definite Hessian matrix is a necessary and sufficient condition to consider that the cost function is concave. 
+
+\vspace{0.5cm}
+The Hessian matrix, $H$, is defined as:
+
+\begin{equation} \label{eq100}
+H=\frac{\partial^2 C}{\partial p_j \partial p_k} \hspace{0.5cm} \textrm{ j,k } \in [1...J]
+\end{equation}
+
+where $C$ is the EASI cost function described in (\ref{eq1}). By naming $S$ the right hand side in the equation (\ref{eq1}), we can write:
+
+\begin{equation} \label{eq101}
+\ln C = S \Rightarrow C = \exp\{S\}
+\end{equation}
+
+The Hessian matrix, $H$, is also equal to:
+
+\begin{equation} \label{eq102}
+H = \frac{\partial^2 S}{\partial p_j \partial p_k} \exp{S} + \frac{\partial S}{\partial p_j} \frac{\partial S}{\partial p_k} \exp{S}
+\end{equation}
+
+where:
+
+\begin{equation}
+ \frac{\partial^2 S}{\partial p_j \partial p_k} = 2\frac{\partial^2 y}{\partial p_j \partial p_k} + \frac{\partial^2 S0}{\partial p_j \partial p_k} + \frac{\partial^2 S1}{\partial p_j \partial p_k}  + \frac{\partial^2 S2}{\partial p_j \partial p_k}y + \frac{\partial S2}{\partial p_j} \frac{\partial y}{\partial p_k}  + \frac{\partial S2}{\partial p_k} \frac{\partial y}{\partial p_j}
+\end{equation}
+
+
+and 
+
+\begin{equation} 
+ \frac{\partial S}{\partial p_j} = \frac{\partial y}{\partial p_j} + \frac{\partial S0}{\partial p_j} + \frac{\partial S1}{\partial p_j} + \frac{\partial S2}{\partial p_j} y + S2 \frac{\partial y}{\partial p_j}
+\end{equation}
+
+\vspace{0.5cm}
+A little algebra allows us to write:
+
+\begin{equation}
+  S0 = \sum_{j=1}^J w^j \ln p_j
+\end{equation}
+
+\begin{equation}
+  \frac{\partial S0}{\partial p_j} = \frac{w^j}{p_j}
+\end{equation}
+
+
+
+\begin{equation}
+  \begin{array}{l}
+ {\displaystyle \frac{\partial^2 S0}{\partial p_j \partial p_k} = 0 \textrm{ if } j \neq k } \\[12pt]
+ \phantom{\frac{\partial^2 S0}{\partial p_j \partial p_k}} {\displaystyle = -\frac{w^j}{p_j^2} \textrm{ otherwise } }
+ \end{array}
+\end{equation}
+
+
+
+
+
+\begin{equation}
+  S1 = -1/2 \sum_{j=1}^J \sum_{k=1}^J \sum_{t=1}^T a_{jkt} z_t \ln p^j \ln p^k
+\end{equation}
+
+\begin{equation}
+  \frac{\partial S1}{\partial p_j} = -\sum_{k=1}^J \sum_{t=1}^T \frac{a_{jkt}}{p_j} z_t \ln p^k
+\end{equation}
+
+\begin{equation}
+  \frac{\partial^2 S1}{\partial p_j \partial p_k} = -\sum_{t=1}^T \frac{a_{jkt}}{p_jp_k}z_t
+\end{equation}
+
+
+\begin{equation}
+  S2 = -1/2 \sum_{j=1}^J \sum_{k=1}^J  b_{jk} \ln p^j \ln p^k
+\end{equation}
+
+\begin{equation}
+  \frac{\partial S2}{\partial p_j} = -\sum_{k=1}^J  \frac{b_{jk}}{p_j} \ln p^k
+\end{equation}
+
+\begin{equation}
+  \frac{\partial^2 S2}{\partial p_j \partial p_k} = - \frac{b_{jk}}{p_jp_k}
+\end{equation}
+
+
+\newpage
+\section{Package structure}
+\label{sec:structure}
+
+\begin{figure}[!h]
+   \vspace{-2cm}\hspace{-1cm} \includegraphics[width=19cm,height=24cm]{schemaeasi.pdf}
+
+\vspace{-2cm}
+\caption{\label{fig:schemaeasi1} The Package Structure.}
+\end{figure}
+
+\vspace{0.5cm} Figure \ref{fig:schemaeasi1} shows the \pkg{easi}
+package structure. The package has five main functions. The first
+function, namely the \code{easi} function, allows estimation of the
+model and generates nu,erous results as an object of class
+\code{easi}. Five methods were written to retrieve the results more
+easily: \code{coef} (parameter estimates), \code{predict} (matrix of
+the fitted budget shares), \code{residuals} (matrix of residuals),
+\code{summary} (summary of the estimation results), and \code{vcov}
+(covariance matrix of the paramter estimates). The \code{easi}
+function uses the \pkg{systemfit} package for the estimation procedure
+(iterated three stages least squares).
+
+\vspace{0.5cm} The results of the \code{easi} function (coefficients,
+variance matrix) can be used to compute Engel curves, elasticities, as
+well as to conduct simulations. More precisely, the \code{engel}
+function computes and draws the Engel Curves while the
+\code{elasticities} function calculates the elasticities of the budget
+shares and the elasticities of the quantities. The concavity of the cost function can be checked with the \code{concavity} function.
+
+
+\vspace{0.5cm} Likewise, two types of simulations are implemented
+within the \pkg{easi} package. Both require the user to specify new prices and
+/ or new demographics and / or a new vector of total expenditure. The
+\code{simulations}  generate new budget shares and \code{equiv.income} functions
+and equivalent income after
+above mentioned changes.
+
+\vspace{0.5cm} The result of \code{simulations} function is also an
+object of class \code{easi}. Therefore, the new elasticities and the
+new Engel Curves can be calculated after the simulations.
+
+\vspace{0.5cm} An internal function allows the calculation of
+intermediate blocks useful for generating the matrix of budget shares
+and the vector of utility implied. This function, namely
+\code{intermediate.blocs} is called by the \code{engel},
+\code{elasticities}, \code{simulations} and \code{equiv.income}
+functions.
+
+\vspace{0.5cm} Finally, a database for examples and help is provided
+in the \pkg{easi} package. These data are those used by
+\cite{Lewbel/09}, namely the \code{hixdata}.
+
+\section{Examples}
+\label{sec:examples}
+
+The \pkg{easi} package is loaded using:
+
+
+<<>>=
+library(easi)
+@
+
+\vspace{0.5cm} To illustrate the use of the \pkg{easi} package, we use
+the \code{hixdata} data frame (See \cite{Lewbel/09}).
+
+<<>>=
+data(hixdata)
+@
+
+Data consist of 4,847 observations of rental-tenure single-member
+canadian households that had positive expenditures on rent,
+recreation, and transportation (For details see \cite{Lewbel/09}).
+
+\vspace{0.5cm}
+The covariates of this data are:
+
+  \begin{description}
+    \item[\code{obs}:] number of observations
+    \item[\code{sfoodh}:] the budget share of food at home
+    \item[\code{sfoodr}:] the budget share of others foods
+    \item[\code{srent}:] the budget share of rent
+    \item[\code{soper}:] the budget share of household operations
+    \item[\code{sfurn}:] the budget share of household furnishing and equipment
+    \item[\code{scloth}:] the budget share of clothing
+    \item[\code{stranop}:] the budget share of transportation operations
+    \item[\code{srecr}:] the budget share of recreations
+    \item[\code{spers}:] the budget share of personal care
+    \item[\code{pfoodh}:] the logarithm of the price of food at home
+    \item[\code{pfoodr}:] the logarithm of the price of others foods
+    \item[\code{prent}:] the logarithm of the price of rent
+    \item[\code{poper}:] the logarithm of the price of household operations
+    \item[\code{pfurn}:] the logarithm of the price of household furnishing and equipment
+    \item[\code{pcloth}:] the logarithm of the price of clothing
+    \item[\code{ptranop}:] the logarithm of the price of transportation operations
+    \item[\code{precr}:] the logarithm of the price of recreations
+    \item[\code{ppers}:] the logarithm of the price of personal care
+    \item[\code{log\_y}:] the logarithm of total expenditure
+    \item[\code{age}:] the person's age minus 40
+    \item[\code{hsex}:] the sex dummy equal to one for men
+    \item[\code{carown}:] a car-nonowner dummy equal to one if real gasoline expenditures (at 1986 gasoline prices) are less than 50 dollars
+    \item[\code{time}:] a time variable equal to the calendar year minus 1986
+    \item[\code{tran}:] a social assistance dummy equal to one of government transfers are greater than 10 percent of gross income
+    \item[\code{wgt}:] weighting variable
+  \end{description}
+
+\vspace{0.5cm}
+\subsection{Estimation}
+
+\vspace{0.5cm} The estimation is performed using the \code{easi}
+function, which has the following obligatory arguments: \code{shares}
+is the budget shares matrix (one observation by row and one item by
+column), \code{log.price} is the prices matrix (in logaritms) (one
+observation by row and one item by column), \code{var.soc} is the
+matrix of demographic variables and \code{log.exp} is the logaritm of
+total expenditure.
+
+
+\vspace{0.5cm} The user can customize the estimation with the
+following options. The first option - \code{y.power} - is an integer
+which corresponds to the highest desired power of \code{y} (implicit
+utility) in the system. \code{labels.share} and \code{labels.soc} are
+two strings which contain respectively the names of budget shares and
+the names of demographic variables.  The following options -
+\code{py.inter}, \code{zy.inter} and \code{pz.inter} - are three
+logical variables which are each fixed to TRUE (FALSE otherwise) if
+the user wants respectively to enable the interaction between the
+price variables and \code{y}, the interaction between the demographic
+variables and \code{y}, the interaction between the prices and
+demographic variables. Finally, \code{interpz} is a vector which
+allows to choose which demographic variables have to be crossed with
+the price. For example, \code{interpz=c(3)} means that prices are
+crossed with the third demographic variable while \code{interpz = c
+(1:n)} means that prices are crossed with the first \code{n}
+demographic variables.
+
+
+\vspace{0.5cm}
+To illustrate the use of \pkg{easi} package, we reproduce the results of \cite{Lewbel/09}.
+We first estimate a simple EASI model, which we arbitrarily call \code{est}.
+
+<<>>=
+#****** Budget Shares Matrix *************
+#     shares_HIX=hixdata[,2:10]
+#****** Price Matrix (in logarithms) *****
+#     log.price_HIX=hixdata[,11:19] 
+#****** Demographic matrix **********
+#     var.soc_HIX=hixdata[,21:25]
+#****** Logarithm of total expenditure ***
+#****** (here divised by a price index) **
+#     log.exp_HIX=hixdata[,20]  
+#****** Labels of demographic variables **
+#     labels.soc <- c("age","hsex","carown","time","tran")
+#****** Labels of budget shares **********
+#     labels.share=c("food in","food out","rent","operations",
+#       "furnishing","clothes","transport","recreation")
+@
+
+<<>>=
+#est <- easi(shares=shares_HIX,log.price=log.price_HIX,var.soc=var.soc_HIX,
+ #           y.power=5,log.exp=log.exp_HIX,labels.share=labels.share,
+  #          labels.soc=labels.soc,py.inter=TRUE, zy.inter=TRUE, 
+   #         pz.inter=TRUE, interpz=c(1:ncol(var.soc_HIX)))
+@
+
+\vspace{0.5cm} Several methods for an easier manipulation of the
+results. The \code{coef} method allows to recover the
+coefficients. Here, for more readability, we present only the first
+three lines of the coefficient matrix.
+
+<<>>=
+#head(coef(est),3)
+@
+
+
+\vspace{0.5cm} The \code{vcov} method allows to recover the variance
+matrix. The covariance matrix is too large for printing here. Its size
+is given by:
+
+<<>>=
+#dim(vcov(est))
+@
+
+\vspace{0.5cm}
+The \code{predict} method allows to recover the fitted budget shares:
+
+<<>>=
+#head(predict(est),3)
+@
+
+\vspace{0.5cm}
+The \code{residuals} method allows to recover the residuals.
+
+<<>>=
+#head(residuals(est),3)
+@
+
+
+
+\vspace{0.5cm}
+The \code{concavity} function allows to check the local concavity of the cost function.
+
+<<>>=
+#head(concavity(est))
+@
+
+Here, the cost function is concave on more than 90$\%$ of the observations.
+
+\vspace{0.5cm}
+\subsection{Elasticities}
+
+\vspace{0.5cm} The elasticities can be calculated with the
+\code{elasticities} function. The arguments of the function are the
+result of the \code{easi} function (an object of class \code{easi},
+here \code{est}), the type of desired elasticities (between "price",
+"demographic" and "income") and a logical variable \code{sd} that
+indicates if standard deviations must be calculated.
+
+\vspace{0.5cm}
+The calculation of price elasticities are performed by:
+
+<<>>=
+#elastprice <- elastic(est,type="price",sd=TRUE)
+@
+
+\vspace{0.5cm}
+The price elasticities of budget shares are recovered by:
+
+<<>>=
+#elastprice$EP[paste("p",labels.share,sep=""),
+ #             paste("p",labels.share,sep="")]
+@
+
+\vspace{0.5cm}
+The corresponding standard deviations are recovered by:
+
+<<>>=
+#elastprice$EP_SE[paste("p",labels.share,sep=""),
+  #               paste("p",labels.share,sep="")]
+@
+
+
+\vspace{0.5cm}
+The elasticities of quantities with respect to prices are recovered by:
+
+<<>>=
+#elastprice$ELASTPRICE[paste("p",labels.share,sep=""),
+#                      paste("p",labels.share,sep="")]
+@
+
+\vspace{0.5cm}
+The corresponding standard deviations are recovered by:
+
+<<>>=
+#elastprice$ELASTPRICE_SE[paste("p",labels.share,sep=""),
+#                         paste("p",labels.share,sep="")]
+@
+
+
+\vspace{0.5cm}
+The calculation of income elasticities are performed by:
+
+<<>>=
+#elastincome <- elastic(est,type="income",sd=FALSE)
+@
+
+\vspace{0.5cm}
+The income elasticities of budget shares are recovered by:
+
+<<>>=
+#elastincome$ER[1,labels.share]
+@
+
+\vspace{0.5cm}
+The elasticities of quantities with respect to income are recovered by:
+
+<<>>=
+#elastincome$ELASTINCOME[1,labels.share]
+@
+
+
+\vspace{0.5cm}
+The calculation of demographic elasticities are performed by:
+
+<<>>=
+#elastdemographic <- elastic(est,type="demographics",sd=FALSE)
+@
+
+\vspace{0.5cm}
+\subsection{Engel curves}
+
+\vspace{0.5cm} If one wants to calculate Engel curves, one can use the
+\code{engel} function, whose arguments are the result of the
+\code{easi} function (an object of class \code{easi}, here
+\code{est}), the name where the Engel curves must be graphically
+represented, and a logical variable \code{sd} that indicates if
+confidence intervals must be calculated and represented.
+
+<<>>=
+#eng1 <- engel(est,file="graph_engels_curves",sd=TRUE)
+@ 
+
+\vspace{0.5cm} The figure \ref{fig:eng1} shows the Engel curves of the
+\code{est} estimation. Each green circle is the median of the budget
+share for the considered percentile of total expenditure described in
+abscissa. Magenta crosses delimit a confidence interval of
+95$\%$. Curves (black, blue and red) correspond to three increasing
+levels of smoothing.
+
+\begin{figure}[!h]
+\caption{\label{fig:eng1} The Engel Curves of easi estimation.}
+  \includegraphics[width=17cm,height=17cm]{grapheng1.pdf}
+\end{figure}
+
+\vspace{0.5cm}
+\subsection{Simulations}
+
+\vspace{0.5cm} \pkg{easi} provides routines to perform simulations. To
+illustrate, we decide to reproduce the simulation of \cite{Lewbel/09},
+namely the estimated Engel curves from the model for a 40-year-old
+car-owning female in 1986 who didn't receive much government transfer
+income and having $\varepsilon=0$.
+
+\vspace{0.5cm} This configuration implies that all prices (in
+logarithms) and all demographic variables are null.
+
+<<>>=
+ #    log.price_HIX.SIM1 <- log.price_HIX
+ #   for (i in 1:ncol(log.price_HIX))
+ #  log.price_HIX.SIM1[,i] <- 0
+     
+ #    var.soc_HIX.SIM1 <- var.soc_HIX
+ #    for (i in 1:ncol(var.soc_HIX))
+ #    var.soc_HIX.SIM1[,i] <- 0
+@    
+
+\vspace{0.5cm} The \code{simulations} function allows to calculate the
+fitted values of budget shares after the previous changes in prices
+and demographics.
+
+\vspace{0.5cm}
+<<>>=
+  #   sim <- simulations(est,log.price_new=log.price_HIX.SIM1,
+  #           var.soc_new=var.soc_HIX.SIM1,log.exp_new=log.exp_HIX)
+@ 
+
+\vspace{0.5cm}
+The corresponding Engel curves are calculated as previously.
+  
+<<>>=
+#eng2 <- engel(sim,file="simeng",sd=TRUE)
+@ 
+
+\vspace{0.5cm}
+The figure \ref{fig:simeng1} shows the Engel curves of the \code{sim} simulation.
+
+
+\begin{figure}[!h]
+\caption{\label{fig:simeng1} The Engel Curves of easi simulation.}
+  \includegraphics[width=17cm,height=17cm]{simeng.pdf}
+\end{figure}
+
+
+\vspace{0.5cm}
+\subsection{Equivalent income}
+
+\vspace{0.5cm} Our version of \code{hixdata} does not contain the
+variable "total expenditure". We propose to simulate instead an
+"hybrid model" in order to illustrate the use of the
+\code{equiv.income} function:
+
+\vspace{0.5cm} This model is composed of five budget shares whose
+means are respectively equal to 0.25, 0.15, 0.20, 0.30 and 0.10.
+
+<<>>=
+w1 <- rnorm(3000,mean=0.25,sd=0.05)
+w2 <- rnorm(3000,mean=0.15,sd=0.05)
+w3 <- rnorm(3000,mean=0.20,sd=0.05)
+w4 <- rnorm(3000,mean=0.30,sd=0.05)
+w5 <- 1-w1-w2-w3-w4 
+shares_SIM <- data.frame(w1,w2,w3,w4,w5)
+@ 
+
+\vspace{0.5cm} We simulate five price vectors, whose means are
+respectively equal to 25, 15, 20, 30 and 10:
+
+<<>>=     
+p1 <- log(rnorm(3000,mean=25,sd=3))
+p2 <- log(rnorm(3000,mean=15,sd=2))
+p3 <- log(rnorm(3000,mean=20,sd=3))
+p4 <- log(rnorm(3000,mean=30,sd=4))
+p5 <- log(rnorm(3000,mean=10,sd=1))
+log.price_SIM <- data.frame(p1,p2,p3,p4,p5)
+@ 
+
+\vspace{0.5cm} We simulate four demographics variable : V1, V3, V4
+that are dummy variables, and V2 that take his values in
+$\mathbb{N^+}$.
+
+<<>>= 
+V1 <- abs(round(rnorm(3000,mean=0.7,sd=0.2)))
+V2 <- abs(round(rnorm(3000,mean=2,sd=1)))+1
+V3 <- abs(round(rnorm(3000,mean=0.7,sd=0.2)))
+V4 <- abs(round(rnorm(3000,mean=0.7,sd=0.2)))
+var.soc_SIM <- data.frame(V1,V2,V3,V4)
+@ 
+
+\vspace{0.5cm}
+Finally, we simulate a vector of total expenditure whose the average is 1200.
+
+<<>>= 
+     log.exp_SIM <- log(rnorm(3000,mean=1200,sd=200))
+@ 
+
+\vspace{0.5cm}
+The first step is to estimate the EASI model: 
+
+<<>>=  
+     est2 <- easi(shares=shares_SIM,log.price=log.price_SIM,
+                 var.soc=var.soc_SIM,log.exp=log.exp_SIM)
+@
+
+\vspace{0.5cm} Let's consider the calculation of equivalent income
+after following changes : PRICE\_SIM are multiplied by 1.4 between
+reference and current period while exp\_SIM is only multiplied by 1.05
+between reference and current period. This scenario thus corresponds a
+priori to a loss of purchasing power.
+
+<<>>=
+     log.price_SIM2 <- log(exp(log.price_SIM)*1.4)
+     log.exp_SIM2 <- log(exp(log.exp_SIM)*1.05)
+     equiv <- equiv.income(est2,log.exp_ref=log.exp_SIM,log.exp_cur=log.exp_SIM2,
+                 log.price_ref=log.price_SIM,log.price_cur=log.price_SIM2)
+@ 
+
+\vspace{0.5cm} The result indicates, as expected, that the welfare of
+households decreased between the reference period and current period.
+
+\newpage
+\section{Conclusion}
+\label{sec:conclusion}
+
+\pkg{easi} aims at providing a unified framework allowing to estimate
+and exploit the Exact Affine Stone Index (EASI) demand system of
+\cite{Lewbel/09} not currently implemented in R. The EASI demand
+system has several advantages in comparison to AIDS and
+QUAIDS. Firstly, its numerical implementation is easier due to the
+linearity in terms of parameters. Secondly, unobserved preferences are
+taken into account thanks to additive errors which are interpreted as
+random utility parameters. Finally, easi Engel Curves may have more
+complicated shapes as suggested by the possible specification of high
+order polynomials in log real expenditure in the system.
+
+For each estimation, \pkg{easi} allows the choice of one version of
+EASI model with one, two or all of the following interactions :
+interactions between prices and log real expenditure, interactions
+between prices and demographic variables and interactions between log
+real expenditure and demographic variables.
+
+It moreover offers tools for exploitation of the results and
+simulations.
+
+Among these tools, \pkg{easi} provides methods to retrieve more easily
+the estimates, the residual, the variance matrix, the fitted budget
+shares and the summary of estimation. It also develops functions to
+calculate and draw the Engel Curves and functions to calculate
+elasticities (price elasticities, income elasticities and demographic
+elasticities).
+
+Furthermore, it enables simulations, namely the assessment of the
+impact of price changes, income changes and demographics changes on
+fitted budget shares and elasticities. Similarly, function for
+calculation of equivalent income is available in \pkg{easi}.
+
+Still, extensions and improvements of the software are under way,
+notably the inclusion of weights.
+
+Research is continuing in this direction.
+
+\bibliography{biblioeasi}
+
+\end{document}
